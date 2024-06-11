@@ -26,10 +26,10 @@ kotlin {
         binaries.executable()
     }
     
-    jvm("desktop")
+    //jvm("desktop")
     
     sourceSets {
-        val desktopMain by getting
+        //val desktopMain by getting
         
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -39,10 +39,21 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
             implementation(projects.shared)
+            implementation(libs.ktor.client.core)
+            implementation("io.coil-kt.coil3:coil:3.0.0-alpha06")
+            implementation("io.coil-kt.coil3:coil-compose:3.0.0-alpha06")
+            implementation("io.coil-kt.coil3:coil-network-ktor:3.0.0-alpha06")
         }
-        desktopMain.dependencies {
+        wasmJsMain.dependencies {
+            implementation("io.ktor:ktor-client-core:3.0.0-beta-2-eap-940")
+        }
+        /*val wasmJs by getting
+        wasmJs.dependencies {
+            implementation(libs.ktor.client.core.wasm)
+        }*/
+        /*desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
-        }
+        }*/
     }
 }
 

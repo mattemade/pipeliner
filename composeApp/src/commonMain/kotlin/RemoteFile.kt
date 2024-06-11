@@ -1,0 +1,1 @@
+data class RemoteFile(val name: String, val isDirectory: Boolean, val isLaunchable: Boolean)
