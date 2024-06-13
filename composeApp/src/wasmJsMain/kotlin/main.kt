@@ -14,6 +14,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.http.encodeURLPath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -31,7 +32,7 @@ fun main() {
             coroutineScope.updateFiles(path = joinedPath()) { files = it }
         }
 
-        var uploadFileNameSelector by remember { mutableStateOf<UploadFileNameSelector?>(null) }
+        var dialog by remember { mutableStateOf<DialogDefinition?>(null) }
         var uploading by remember { mutableStateOf(false) }
 
         App(
@@ -48,19 +49,29 @@ fun main() {
             openFile = {
                 openFile("files/${joinedPath()}/$it")
             },
-            onFileDragged = { replacingFileName, uploadFileName, bytes ->
-                if (replacingFileName != null) {
-                    uploadFileNameSelector = UploadFileNameSelector(replacingFileName, uploadFileName, bytes)
-                } else {
-                    uploadFileNameSelector = null
-                    uploading = true
-                    coroutineScope.uploadFile("${joinedPath()}/$uploadFileName", bytes, {
-                        uploading = false
-                        loadFiles()
-                    })
+            deleteFile = {
+                dialog = DialogDefinition(
+                    "delete $it",
+                    DialogOption("yes") {
+                        dialog = null
+                        coroutineScope.deleteFile("${joinedPath()}/$it") { loadFiles() }
+                    },
+                    DialogOption("no") { dialog = null },
+                )
+            },
+            downloadDir = {
+                coroutineScope.getZip(joinedPath()) {
+                    openFile("zip/${joinedPath()}.zip")
                 }
             },
-            uploadFileNameSelector = { uploadFileNameSelector },
+            onFileDragged = { uploadFileName, bytes ->
+                uploading = true
+                coroutineScope.uploadFile("${joinedPath()}/$uploadFileName", bytes, {
+                    uploading = false
+                    loadFiles()
+                })
+            },
+            dialog = { dialog },
             uploading = { uploading },
         )
 
@@ -76,7 +87,7 @@ private fun openFile(filePath: String) {
 
 private fun CoroutineScope.updateFiles(path: String = "", done: (List<RemoteFile>) -> Unit) {
     launch {
-        val result = client.get(urlString = "$serverAddress/listFiles/$path").bodyAsText().split(",").map {
+        val result = client.get(urlString = "$serverAddress/listFiles/$path".encodeURLPath()).bodyAsText().split(",").map {
             val (name, isDirectory, isLaunchable) = it.split("|")
             RemoteFile(name, isDirectory.toBoolean(), isLaunchable.toBoolean())
         }.sortedWith { left, right ->
@@ -90,13 +101,28 @@ private fun CoroutineScope.updateFiles(path: String = "", done: (List<RemoteFile
     }
 }
 
+
+private fun CoroutineScope.getZip(file: String, onCompleted: () -> Unit) {
+    launch {
+        client.get(urlString = "$serverAddress/getZip/$file".encodeURLPath())
+        onCompleted()
+    }
+}
+
+private fun CoroutineScope.deleteFile(file: String, onCompleted: () -> Unit) {
+    launch {
+        client.get(urlString = "$serverAddress/delete/$file".encodeURLPath())
+        onCompleted()
+    }
+}
+
 private fun CoroutineScope.uploadFile(
     uploadFileName: String,
     bytes: ByteArray,
     onCompleted: () -> Unit,
 ) {
     launch {
-        client.post(urlString = "$serverAddress/uploadFile") {
+        client.post(urlString = "$serverAddress/uploadFile".encodeURLPath()) {
             setBody(MultiPartFormDataContent(
                 formData {
                     append("filename", uploadFileName)

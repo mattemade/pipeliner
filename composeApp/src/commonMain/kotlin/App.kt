@@ -23,17 +23,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import pipeliner.composeapp.generated.resources.Res
@@ -41,9 +46,9 @@ import pipeliner.composeapp.generated.resources.document_svgrepo_com
 import pipeliner.composeapp.generated.resources.folder_svgrepo_com
 import pipeliner.composeapp.generated.resources.play_svgrepo_com
 
-val serverAddress = "http://127.0.0.1"
+//val serverAddress = "http://127.0.0.1"
 
-//val serverAddress = "http://mattemade.net"
+val serverAddress = "http://mattemade.net"
 private var droppingTo: RemoteFile? = null
 
 @Composable
@@ -54,8 +59,10 @@ fun App(
     navigateDown: (String) -> Unit,
     navigateUp: (times: Int) -> Unit,
     openFile: (String) -> Unit,
-    onFileDragged: (draggedTo: String?, draggedFileName: String, ByteArray) -> Unit,
-    uploadFileNameSelector: () -> UploadFileNameSelector?,
+    deleteFile: (String) -> Unit,
+    downloadDir: () -> Unit,
+    onFileDragged: (draggedFileName: String, ByteArray) -> Unit,
+    dialog: () -> DialogDefinition?,
     uploading: () -> Boolean,
 ) {
     val joinedPath = path.joinToString(separator = "/")
@@ -72,18 +79,18 @@ fun App(
                     droppingTo = null
                 },
                 onSingleFileDropped = { filename, bytes ->
-                    onFileDragged(if (droppingTo?.isDirectory == true) null else droppingTo?.name, filename, bytes)
+                    onFileDragged(filename, bytes)
                     draggingToRelative = null
                     droppingTo = null
                 })
         ) {
             Column(Modifier.fillMaxSize()) {
-                topButtons(path, navigateUp)
+                topButtons(joinedPath, path, navigateUp, downloadDir)
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(files.size, key = { files[it] }) {
+                    items(files.size, key = { "$joinedPath ${files[it]}" }) {
                         val element = files[it]
                         file(
                             element,
@@ -98,11 +105,12 @@ fun App(
                                 }
                             },
                             onLaunch = { openFile("${element.name}/index.html") },
+                            delete = { deleteFile(element.name) }
                         )
                     }
                 }
             }
-            uploadFileNameSelector()?.let { uploadFileNameSelector ->
+            dialog()?.let { dialog ->
                 Box(
                     Modifier.fillMaxSize().background(Color.LightGray.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center
@@ -110,25 +118,17 @@ fun App(
                     Column(
                         Modifier.background(Color.White).padding(16.dp),
                     ) {
-                        Text("Upload file and:", Modifier.height(32.dp).align(Alignment.CenterHorizontally))
+                        Text(dialog.message, Modifier.height(32.dp).align(Alignment.CenterHorizontally))
                         Text(
-                            "replace ${uploadFileNameSelector.draggedToFile}",
+                            dialog.optionA.name,
                             Modifier.height(32.dp).clickable {
-                                onFileDragged(
-                                    null,
-                                    uploadFileNameSelector.draggedToFile,
-                                    uploadFileNameSelector.bytes
-                                )
+                                dialog.optionA.action()
                             }.padding(horizontal = 16.dp)
                         )
                         Text(
-                            "create new ${uploadFileNameSelector.originalFile}",
+                            dialog.optionB.name,
                             Modifier.height(32.dp).clickable {
-                                onFileDragged(
-                                    null,
-                                    uploadFileNameSelector.originalFile,
-                                    uploadFileNameSelector.bytes
-                                )
+                                dialog.optionB.action()
                             }.padding(horizontal = 16.dp)
                         )
                     }
@@ -150,6 +150,7 @@ fun App(
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun file(
     file: RemoteFile,
@@ -158,6 +159,7 @@ fun file(
     composeCanvasSize: () -> IntSize,
     onClick: () -> Unit,
     onLaunch: () -> Unit,
+    delete: () -> Unit,
 ) {
     var elementPosition by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     var showContent by remember { mutableStateOf(false) }
@@ -178,11 +180,17 @@ fun file(
         }
     }
     val backgroundColor = if (isTargetForDragAndDrop) Color.LightGray else Color.White
+    var isFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Row(
         modifier = Modifier.fillMaxWidth()
             .height(32.dp)
-            //.onFocusChanged { backgroundColor = if (it.isFocused) Color.LightGray else Color.White }
+            .onPointerEvent(PointerEventType.Enter) {
+                isFocused = true
+            }
+            .onPointerEvent(PointerEventType.Exit) {
+                isFocused = false
+            }
             .background(backgroundColor)
             .clickable {
                 onClick()
@@ -206,7 +214,11 @@ fun file(
             } else if (extention in audioExt) {
                 Image(painterResource(Res.drawable.play_svgrepo_com), contentDescription = null, Modifier.size(24.dp))
             } else {
-                Image(painterResource(Res.drawable.document_svgrepo_com), contentDescription = null, Modifier.size(24.dp))
+                Image(
+                    painterResource(Res.drawable.document_svgrepo_com),
+                    contentDescription = null,
+                    Modifier.size(24.dp)
+                )
             }
         }
         Spacer(Modifier.width(8.dp))
@@ -217,6 +229,14 @@ fun file(
                 Text("Play")
             }
         }
+        if (isFocused) {
+            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(16.dp))
+            Text(
+                "delete",
+                Modifier.height(32.dp).clickable(onClick = delete).padding(horizontal = 8.dp)
+            )
+        }
     }
 }
 
@@ -224,10 +244,15 @@ private val imageExt = setOf(".png", ".jpg")
 private val audioExt = setOf(".wav", ".ogg", ".mp3")
 
 @Composable
-fun topButtons(path: List<String>, navigateUp: (times: Int) -> Unit) {
+fun topButtons(
+    joinedPath: String,
+    path: List<String>,
+    navigateUp: (times: Int) -> Unit,
+    download: () -> Unit,
+) {
     val size = path.size
     LazyRow(Modifier.padding(start = 16.dp)) {
-        items(size + 1, key = { if (it == 0) "root" else path[it - 1] }) { index ->
+        items(size + 1, key = { if (it == 0) "root" else "$joinedPath ${path[it - 1]}" }) { index ->
             //var backgroundColor by remember { mutableStateOf(Color.White) }
             Text(
                 if (index == 0) "files/" else "${path[index - 1]}/",
@@ -237,6 +262,12 @@ fun topButtons(path: List<String>, navigateUp: (times: Int) -> Unit) {
                     .clickable(/*enabled = index < size,*/ onClick = {
                         navigateUp(size - index)
                     })
+            )
+        }
+        item {
+            Text(
+                "download",
+                Modifier.padding(start = 16.dp).height(32.dp).clickable(onClick = download).padding(horizontal = 8.dp)
             )
         }
     }

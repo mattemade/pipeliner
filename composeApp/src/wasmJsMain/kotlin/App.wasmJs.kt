@@ -3,6 +3,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalWindowInfo
+import io.ktor.http.encodeURLPath
 import kotlinx.browser.window
 import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Int8Array
@@ -14,7 +15,7 @@ import org.w3c.files.FileReader
 external fun registerDragAndDropListener(
     onDragOver: (DragEvent, Int, Int) -> Unit,
     onDragLeave: () -> Unit,
-    onDrop: (File) -> Unit,
+    onDrop: (baseDir: String, File) -> Unit,
 )
 
 external fun unregisterDragAndDropListener()
@@ -25,7 +26,7 @@ external class DragEvent(pageX: Int, pageY: Int) : JsAny {
 }
 
 actual fun loadUrl(url: String) {
-    window.open(url)
+    window.open(url.encodeURLPath())
 }
 
 @Composable
@@ -40,10 +41,10 @@ actual fun Modifier.onDragAndDrop(
                 onDragOver(event.pageX / pageWidth.toFloat(), event.pageY / pageHeight.toFloat())
             },
             onDragLeave = { onDragLeave() },
-            onDrop = { file ->
+            onDrop = { baseDir, file ->
                 FileReader().apply {
                     onload = {
-                        onSingleFileDropped(file.name, Int8Array(result as ArrayBuffer).toByteArray())
+                        onSingleFileDropped("$baseDir${file.name}", Int8Array(result as ArrayBuffer).toByteArray())
                     }
                     readAsArrayBuffer(file)
                 }

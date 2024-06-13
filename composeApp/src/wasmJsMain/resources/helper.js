@@ -17,15 +17,29 @@ function dropHandler(ev) {
     console.log(ev);
     if (ev.dataTransfer.items) {
         [...ev.dataTransfer.items].forEach((item, i) => {
-          if (item.kind === "file") {
-            dragAndDropListener?.onDrop(item.getAsFile());
-          }
+            item.getAsFileSystemHandle().then((handle) => {
+                uploadHandle("", handle);
+            });
         });
       } else {
         [...ev.dataTransfer.files].forEach((file, i) => {
-            dragAndDropListener?.onDrop(file);
+            dragAndDropListener?.onDrop("", file);
         });
       }
+}
+
+function uploadHandle(baseDir, handle) {
+    if (handle.kind === "file") {
+        handle.getFile().then((file) => {
+            dragAndDropListener?.onDrop(baseDir, file);
+        });
+    } else if (handle.kind === "directory") {
+        (async () => {
+            for await (let value of handle.values()) {
+                uploadHandle(baseDir + handle.name + "/", value);
+            }
+        })();
+    }
 }
 
 function dragOverHandler(ev) {
