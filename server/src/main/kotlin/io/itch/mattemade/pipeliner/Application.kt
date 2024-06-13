@@ -8,7 +8,10 @@ import io.ktor.http.content.streamProvider
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
+import io.ktor.server.engine.applicationEngineEnvironment
+import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.http.content.staticRootFolder
 import io.ktor.server.netty.Netty
@@ -21,14 +24,26 @@ import io.ktor.server.routing.routing
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.net.InetAddress
+import java.security.KeyStore
 import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
 fun main() {
-    //embeddedServer(Netty, port = 80, host = "0.0.0.0", module = Application::module)
-    embeddedServer(Netty, port = 80, host = "194.164.91.172", module = Application::module)
+    val environment = applicationEngineEnvironment {
+        connector {
+            port = 80
+        }
+        sslConnector(
+            keyStore = KeyStore.getInstance(File("keystore.jks"), "nKJfngkSH4".toCharArray()),
+            keyAlias = "mattemade",
+            keyStorePassword = { "nKJfngkSH4".toCharArray() },
+            privateKeyPassword = { "nKJfngkSH4".toCharArray() }) {
+            port = 443
+            keyStorePath = File("keystore.jks")
+        }
+        module(Application::module)
+    }
+    embeddedServer(Netty, environment = environment)
         .start(wait = true)
 }
 
@@ -76,7 +91,7 @@ fun Application.module() {
         get("/getZip/{path...}") {
             val path = call.parameters.getAll("path")?.joinToString(separator = "/") ?: ""
             val inputDirectoryPath = "files/$path"
-            val zipFilePath = "zip/$path.zip"
+            val zipFilePath = "files/zip/$path.zip"
             println("creating zip from $path")
             val zip = File(zipFilePath)
             zip.parentFile.mkdirs()
@@ -132,34 +147,11 @@ fun Application.module() {
                     else -> {}
                 }
             }
-            //val file = File("uploads/ktor_logo.png")
-            //call.receiveChannel().copyAndClose(file.writeChannel())
-            if (fileToReplace == "/compose.zip") {
-                val frontendDir = File("composeApp/build/dist/wasmJs/productionExecutable")
-                frontendDir.listFiles().forEach {
-                    it.deleteRecursively()
-                }
-                ZipFile(File("files/compose.zip")).use { zip ->
-                    zip.entries().asSequence().forEach { entry ->
-                        if (!entry.isDirectory) {
-                            zip.getInputStream(entry).use { input ->
-                                File(frontendDir, entry.name.replace("\\", "/")).apply {
-                                    parentFile.mkdirs()
-                                    createNewFile()
-                                }.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             call.respondText("A file is uploaded")
         }
 
         staticFiles("/files", File(staticRootFolder, "files").also { it.mkdir() })
-        staticFiles("/", File(staticRootFolder, "composeApp/build/dist/wasmJs/productionExecutable"))
-        staticFiles("/zip", File(staticRootFolder, "zip").also { it.mkdir() })
+        staticFiles("/", File(staticRootFolder, "files/wasmJs/productionExecutable").also { it.mkdir() })
     }
 }
 
