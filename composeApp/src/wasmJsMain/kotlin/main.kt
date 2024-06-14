@@ -61,7 +61,7 @@ fun main() {
             },
             downloadDir = {
                 coroutineScope.getZip(joinedPath()) {
-                    openFile("zip/${joinedPath()}.zip")
+                    openFile("files/zip/${joinedPath()}.zip")
                 }
             },
             onFileDragged = { uploadFileName, bytes ->
