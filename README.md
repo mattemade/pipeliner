@@ -1,24 +1,38 @@
-This is a Kotlin Multiplatform project targeting Web, Desktop, Server.
+# Pipeliner
 
-* `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - `commonMain` is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    `iosMain` would be the right folder for such calls.
+Full-stack collaboration platform to host HTML/JS applications and resources developed by a distributed team with:
+* JVM backend to hide the internal filesystem behind a safe API
+* WasmJS frontend to expose a file browser to easily read and write files
 
-* `/server` is for the Ktor server application.
+If any folder contains an `index.html`, it is considered as an app, and could be launched by pressing the green triangle (or some other button ¦3).
 
-* `/shared` is for the code that will be shared between all targets in the project.
-  The most important subfolder is `commonMain`. If preferred, you can add code to the platform-specific folders here too.
+I use it at [mattemade.net](https://mattemade.net) to share the in-progress HTML5 game prototypes with people who help me with them, and to
+allow everyone to update the resources independently. Probably does not work with Safari though as I don't have anything with
+macOS to make it work, and Apple does not have enough resources to support basic web specification on their platforms.
 
+### Notes for myself
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+#### How to update the backend
 
-**Note:** Compose/Web is Experimental and may be changed at any time. Use it only for evaluation purposes.
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [GitHub](https://github.com/JetBrains/compose-multiplatform/issues).
+* stop the java process on the server
+* build a new JAR with `gradlew :server:buildFatJar`
+* upload it with `scp build/libs/server-all.jar root@mattemade.net:/home/full/server-all.jar`
+* start the server with `cd /home/full && java -jar server-all.jar &`
 
-You can open the web application by running the `:composeApp:wasmJsBrowserDevelopmentRun` Gradle task.
+#### How to update the frontend
+
+* build a new version with `gradlew :composeApp:wasmJsBrowserDistribution` (maybe try if `jsBrowserDistribution` works, not sure ¦3)
+* drag-and-drop everything from `composeApp/build/dist/wasmJs/productionExecutables/` to [this folder](https://mattemade.net/?wasmJs/productionExecutable)
+
+#### How to update SSL cert
+
+Find the doc from Let's Encrypt and follow it.
+
+After SSL certificate is updated do this:
+```bash
+openssl pkcs12 -export -in /etc/letsencrypt/live/mattemade.net/cert.pem -inkey /etc/letsencrypt/live/mattemade.net/privkey.pem -out pipelinerKeyStore.p12 -name "pipelinerAlias"
+keytool -importkeystore -srckeystore pipelinerKeyStore.p12 -srcstoretype pkcs12 -destkeystore pipelinerKeyStore.jks
+```
+Use `notASecret` as a password for everything that requires a password.
+
+Restart the server right after.
