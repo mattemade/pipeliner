@@ -54,7 +54,7 @@ private var droppingTo: RemoteFile? = null
 @Composable
 @Preview
 fun App(
-    files: List<RemoteFile>,
+    files: List<RemoteFile>?,
     path: List<String>,
     navigateDown: (String) -> Unit,
     navigateUp: (times: Int) -> Unit,
@@ -86,27 +86,29 @@ fun App(
         ) {
             Column(Modifier.fillMaxSize()) {
                 topButtons(joinedPath, path, navigateUp, downloadDir)
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    items(files.size, key = { "$joinedPath ${files[it]}" }) {
-                        val element = files[it]
-                        file(
-                            element,
-                            joinedPath,
-                            { draggingToRelative },
-                            { composeCanvasSize },
-                            onClick = {
-                                if (element.isDirectory) {
-                                    navigateDown(element.name)
-                                } else {
-                                    openFile(element.name)
-                                }
-                            },
-                            onLaunch = { openFile("${element.name}/index.html") },
-                            delete = { deleteFile(element.name) }
-                        )
+                files?.let { files ->
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        items(files.size, key = { "$joinedPath ${files[it]}" }) {
+                            val element = files[it]
+                            file(
+                                element,
+                                joinedPath,
+                                { draggingToRelative },
+                                { composeCanvasSize },
+                                onClick = {
+                                    if (element.isDirectory) {
+                                        navigateDown(element.name)
+                                    } else {
+                                        openFile(element.name)
+                                    }
+                                },
+                                onLaunch = { openFile("${element.name}/index.html") },
+                                delete = { deleteFile(element.name) }
+                            )
+                        }
                     }
                 }
             }
@@ -264,11 +266,14 @@ fun topButtons(
                     })
             )
         }
-        item {
-            Text(
-                "download",
-                Modifier.padding(start = 16.dp).height(32.dp).clickable(onClick = download).padding(horizontal = 8.dp)
-            )
+        if (size > 0) {
+            item {
+                Text(
+                    "download",
+                    Modifier.padding(start = 16.dp).height(32.dp).clickable(onClick = download)
+                        .padding(horizontal = 8.dp)
+                )
+            }
         }
     }
 }

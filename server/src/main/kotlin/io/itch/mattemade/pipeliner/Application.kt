@@ -34,12 +34,12 @@ fun main() {
             port = 80
         }
         sslConnector(
-            keyStore = KeyStore.getInstance(File("keystore.jks"), "nKJfngkSH4".toCharArray()),
-            keyAlias = "mattemade",
-            keyStorePassword = { "nKJfngkSH4".toCharArray() },
-            privateKeyPassword = { "nKJfngkSH4".toCharArray() }) {
+            keyStore = KeyStore.getInstance(File("pipelinerKeyStore.jks"), "notASecret".toCharArray()),
+            keyAlias = "pipelinerAlias",
+            keyStorePassword = { "notASecret".toCharArray() },
+            privateKeyPassword = { "notASecret".toCharArray() }) {
             port = 443
-            keyStorePath = File("keystore.jks")
+            keyStorePath = File("pipelinerKeyStore.jks")
         }
         module(Application::module)
     }
@@ -151,7 +151,17 @@ fun Application.module() {
         }
 
         staticFiles("/files", File(staticRootFolder, "files").also { it.mkdir() })
-        staticFiles("/", File(staticRootFolder, "files/wasmJs/productionExecutable").also { it.mkdir() })
+        staticFiles("/", File(staticRootFolder, "files/wasmJs/productionExecutable").also { it.mkdir() }) {
+            //default("index.html")
+        }
+        val ignoringFiles = setOf("styles.css", "hepler.js", "composeApp.js")
+
+        /*staticFiles("/{...}", File(staticRootFolder, "files/wasmJs/productionExecutable")) {
+            exclude {
+                println("checking ${it.name}")
+                it.name in ignoringFiles
+            }
+        }*/
     }
 }
 

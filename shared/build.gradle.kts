@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
@@ -22,6 +24,25 @@ kotlin {
     }
     
     jvm()
+    js(KotlinJsCompilerType.IR) {
+        binaries.executable()
+        browser {
+            testTask {
+                useKarma {
+                    useChromeHeadless()
+                }
+            }
+        }
+
+        this.attributes.attribute(
+            KotlinPlatformType.attribute,
+            KotlinPlatformType.js
+        )
+
+        compilations.all {
+            kotlinOptions.sourceMap = true
+        }
+    }
     
     sourceSets {
         commonMain.dependencies {

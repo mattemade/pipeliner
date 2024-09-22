@@ -1,4 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
@@ -24,6 +26,25 @@ kotlin {
             }
         }
         binaries.executable()
+    }
+    js(KotlinJsCompilerType.IR) {
+        binaries.executable()
+        browser {
+            testTask {
+                useKarma {
+                    useChromeHeadless()
+                }
+            }
+        }
+
+        this.attributes.attribute(
+            KotlinPlatformType.attribute,
+            KotlinPlatformType.js
+        )
+
+        compilations.all {
+            kotlinOptions.sourceMap = true
+        }
     }
     
     //jvm("desktop")
