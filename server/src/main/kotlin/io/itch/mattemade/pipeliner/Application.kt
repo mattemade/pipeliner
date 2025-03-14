@@ -2,6 +2,7 @@ package io.itch.mattemade.pipeliner
 
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
 import io.ktor.http.content.streamProvider
@@ -11,12 +12,14 @@ import io.ktor.server.application.install
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.engine.sslConnector
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.http.content.staticRootFolder
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.request.header
 import io.ktor.server.request.receiveMultipart
+import io.ktor.server.request.receiveText
+import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -24,22 +27,25 @@ import io.ktor.server.routing.routing
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.security.KeyStore
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+private val timeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+private val dataFile = File("data.txt").also { if (!it.exists()) it.createNewFile() }
+private val accessTokenFile = File("access_token.txt").also { if (!it.exists()) it.createNewFile() }
+private val defaultAccessToken = "default"
+private val newLine = "\n"
+private val divider = "|"
+private var accessToken = defaultAccessToken
+
 fun main() {
+    accessToken = accessTokenFile.readText().trim().takeIf { it.isNotEmpty() } ?: defaultAccessToken
+
     val environment = applicationEngineEnvironment {
         connector {
-            port = 80
-        }
-        sslConnector(
-            keyStore = KeyStore.getInstance(File("pipelinerKeyStore.jks"), "notASecret".toCharArray()),
-            keyAlias = "pipelinerAlias",
-            keyStorePassword = { "notASecret".toCharArray() },
-            privateKeyPassword = { "notASecret".toCharArray() }) {
-            port = 443
-            keyStorePath = File("pipelinerKeyStore.jks")
+            port = 32515
         }
         module(Application::module)
     }
@@ -105,7 +111,7 @@ fun Application.module() {
                         .removePrefix(inputDirectory.absolutePath)
                         .removePrefix("\\") // windows dev
                         .removePrefix("/") // linux prod
-                    val entry = ZipEntry( "$zipFileName${(if (file.isDirectory) "/" else "" )}")
+                    val entry = ZipEntry("$zipFileName${(if (file.isDirectory) "/" else "")}")
                     zos.putNextEntry(entry)
                     if (file.isFile) {
                         file.inputStream().use { fis -> fis.copyTo(zos) }
@@ -162,6 +168,34 @@ fun Application.module() {
                 it.name in ignoringFiles
             }
         }*/
+
+        get("/data") {
+            if (accessToken == defaultAccessToken) {
+                accessToken = accessTokenFile.readText().trim().takeIf { it.isNotEmpty() } ?: defaultAccessToken
+                call.respondText("change access token and repeat a couple of times!")
+                return@get
+            }
+
+            if (accessToken != call.parameters["token"]) {
+                call.respondText("error", status = HttpStatusCode.Unauthorized)
+                return@get
+            }
+
+            call.respondFile(dataFile)
+        }
+
+        post("/data") {
+            val receivedData = call.receiveText()
+            synchronized(dataFile) {
+                dataFile.appendText(timeFormatter.format(LocalDateTime.now()))
+                dataFile.appendText(divider)
+                dataFile.appendText(call.request.header("X-Forwarded-For") ?: "")
+                dataFile.appendText(divider)
+                dataFile.appendText(receivedData)
+                dataFile.appendText(newLine)
+            }
+            call.response.status(HttpStatusCode.OK)
+        }
     }
 }
 

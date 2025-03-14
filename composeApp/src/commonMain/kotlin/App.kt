@@ -46,9 +46,10 @@ import pipeliner.composeapp.generated.resources.document_svgrepo_com
 import pipeliner.composeapp.generated.resources.folder_svgrepo_com
 import pipeliner.composeapp.generated.resources.play_svgrepo_com
 
-//val serverAddress = "http://127.0.0.1"
+//val serverAddress = "http://127.0.0.1:32515"
 
-val serverAddress = "https://mattemade.net"
+val serverAddress = "https://demo.mattemade.net"
+//val serverAddress = "http://mattemade.net:32515"
 private var droppingTo: RemoteFile? = null
 
 @Composable
