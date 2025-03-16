@@ -1,5 +1,8 @@
 package io.itch.mattemade.pipeliner
 
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.services.sheets.v4.Sheets
+import com.google.api.services.sheets.v4.model.ValueRange
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -195,6 +198,78 @@ fun Application.module() {
                 dataFile.appendText(newLine)
             }
             call.response.status(HttpStatusCode.OK)
+        }
+
+
+        get("/sheets") {
+            val spreadsheetId = call.parameters["id"] ?: ""
+            val range = call.parameters["range"] ?: ""
+            if (spreadsheetId.isEmpty() || range.isEmpty()) {
+                call.respondText("define id and range", status = HttpStatusCode.BadRequest)
+                return@get
+            }
+            val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
+            Thread({
+                getCredentials(HTTP_TRANSPORT)
+            }).start()
+            while(true) {
+                Thread.sleep(1)
+                if (authUrl != null || credentials != null || serviceCredential != null) {
+                    break
+                }
+            }
+            authUrl?.let {
+                call.respondText("AUTH $it")
+            } ?: credentials?.let {
+                val service =
+                    Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, it)
+                        .setApplicationName(APPLICATION_NAME)
+                        .build()
+                val response: ValueRange = service.spreadsheets().values()[spreadsheetId, range]
+                    .execute()
+                val values: List<List<Any>> = response.getValues()
+                if (values == null || values.isEmpty()) {
+                    call.respondText("")
+                } else {
+                    val builder = StringBuilder()
+                    for (row in values) {
+                        builder.appendLine(row.joinToString(separator = "|"))
+                    }
+                    call.respondText(builder.toString())
+                }
+                credentials = null
+            } ?: serviceCredential?.let {
+                val accessToken = try {
+                    it.accessToken.tokenValue!!
+                } catch (e: Exception) {
+                    call.respondText("AUTH")
+                    null
+                }
+                if (accessToken != null) {
+                    val service =
+                        Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, {})
+                            .setApplicationName(APPLICATION_NAME)
+                            .build()
+                    try {
+                        val response: ValueRange = service.spreadsheets()
+                            .values()[spreadsheetId, range].setAccessToken(accessToken)
+                            .execute()
+                        val values: List<List<Any>> = response.getValues()
+                        if (values == null || values.isEmpty()) {
+                            call.respondText("")
+                        } else {
+                            val builder = StringBuilder()
+                            for (row in values) {
+                                builder.appendLine(row.joinToString(separator = "|"))
+                            }
+                            call.respondText(builder.toString())
+                        }
+                    } catch (e: Exception) {
+                        call.respondText("ERROR")
+                    }
+                }
+            }
+
         }
     }
 }

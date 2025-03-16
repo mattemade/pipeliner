@@ -23,6 +23,9 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.netty)
+    implementation(libs.google.api.client)
+    implementation(libs.google.oauth.client)
+    implementation(libs.google.api.sheets)
     testImplementation(libs.ktor.server.tests)
     testImplementation(libs.kotlin.test.junit)
 }

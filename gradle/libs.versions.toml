@@ -8,6 +8,9 @@ ktor = "2.3.11"
 #ktor-client = "3.0.0-beta-2-eap-940"
 ktor-wasm = "3.0.0-wasm"
 logback = "1.5.6"
+google-api-client = "2.7.1"
+google-oauth-client-jetty = "1.39.0"
+sheets = "v4-rev20250211-2.0.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -20,6 +23,9 @@ ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "kto
 ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
 ktor-server-tests = { module = "io.ktor:ktor-server-tests-jvm", version.ref = "ktor" }
+google-api-client = { module = "com.google.api-client:google-api-client", version.ref = "google-api-client" }
+google-oauth-client = { module = "com.google.oauth-client:google-oauth-client-jetty", version.ref = "google-oauth-client-jetty" }
+google-api-sheets = { module = "com.google.apis:google-api-services-sheets", version.ref = "sheets" }
 
 [plugins]
 jetbrainsCompose = { id = "org.jetbrains.compose", version.ref = "compose-plugin" }
